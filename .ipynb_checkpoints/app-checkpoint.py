@@ -73,26 +73,38 @@ def tobs():
 #link for how to set up default in readme
 @app.route("/api/v1.0/<start>", defaults={'end':None})
 @app.route("/api/v1.0/<start>/<end>")
-def temperature_date_range(start, end):
-    if end is not None:
-        temp_range = session.query(func.min(Measurement.tobs), func.max(Measurement.tobs), func.max(Measurement.tobs)).\
-        filter(Measurement.date >=start).filter(Measurement.date <= end).all()
-    else:
-        temp_range = session.query(func.min(Measurement.tobs), func.max(Measurement.tobs), func.max(Measurement.tobs)).\
-        filter(Measurement.date >= start).all()
-    #convert the query to jsonify,dict. set no_data to false in case query date's out of range
-    temperature_dict = {}
-    no_data = False
-    for t_min, t_max, t_avg in temp_range:
-        if t_min is None or t_max is None or t_avg is None:
-            no_data = True
-        temperature_dict["Min Temp"] = t_min
-        temperature_dict["Max Temp"] = t_max
-        temperature_dict["Avg Temp"] = t_avg
-    if no_data == True:
-        return "No data found for this date range"
-    else:
-        return jsonify(temperature_dict)
+
+def temperature_date_range(start=None, end=None):
+    # Select statement
+    select = [func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)]
+
+    if not end:
+        start = dt.datetime.strptime(start, "%Y-%m-%d")
+        results = session.query(*select).\
+            filter(Measurement.date >= start).all()
+
+        session.close()
+
+        temps = list(np.ravel(results))
+        return jsonify(temps)
+
+    # calculate TMIN, TAVG, TMAX with start and stop
+    start = dt.datetime.strptime(start, "%Y-%m-%d")
+    end = dt.datetime.strptime(end, "%Y-%m-%d")
+
+    results = session.query(*select).\
+        filter(Measurement.date >= start).\
+        filter(Measurement.date <= end).all()
+
+    session.close()
+
+    temps = list(np.ravel(results))
+    return jsonify(temps=temps)
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+# def stats(start=None, end=None):
+  
+
+   
